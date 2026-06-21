@@ -9,6 +9,7 @@ import {
   MapPinned,
   Plus,
   QrCode,
+  RefreshCw,
   Save,
   Trash2,
 } from 'lucide-react';
@@ -18,6 +19,7 @@ import { Button } from '../../components/ui/Button';
 import { MetricCard } from '../../components/ui/MetricCard';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { StatusPill } from '../../components/ui/StatusPill';
+import { fetchQrCentralStats, type QrCentralStats } from '../../services/qrAnalyticsService';
 import { buildQrLocationUrl, generateQrPngDataUrl } from '../../services/qrLocationService';
 import { useAppStore } from '../../store/appStore';
 import type { QrLocation } from '../../types/domain';
@@ -107,6 +109,60 @@ export function QrLocationsAdminPage() {
   const [form, setForm] = useState<QrLocationFormState>(emptyForm);
   const [copiedSlug, setCopiedSlug] = useState('');
   const [error, setError] = useState('');
+  const [centralStats, setCentralStats] = useState<Record<string, QrCentralStats>>({});
+  const [centralStatus, setCentralStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCentralStats() {
+      if (!qrLocations.length) {
+        setCentralStats({});
+        setCentralStatus('ready');
+        return;
+      }
+
+      setCentralStatus('loading');
+
+      try {
+        const entries = await Promise.all(
+          qrLocations.map(async (location) => [location.slug, await fetchQrCentralStats(location.slug)] as const)
+        );
+
+        if (mounted) {
+          setCentralStats(Object.fromEntries(entries));
+          setCentralStatus('ready');
+        }
+      } catch {
+        if (mounted) {
+          setCentralStatus('error');
+        }
+      }
+    }
+
+    void loadCentralStats();
+
+    return () => {
+      mounted = false;
+    };
+  }, [qrLocations, refreshTick]);
+
+  const locationsWithStats = useMemo(
+    () =>
+      qrLocations.map((location) => {
+        const remote = centralStats[location.slug];
+
+        return {
+          ...location,
+          displayScans: Math.max(location.scans, remote?.total ?? 0),
+          displayLastScanAt: remote?.updatedAt || location.lastScanAt,
+          centralToday: remote?.today ?? 0,
+          centralThisWeek: remote?.thisWeek ?? 0,
+        };
+      }),
+    [centralStats, qrLocations]
+  );
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -114,22 +170,24 @@ export function QrLocationsAdminPage() {
     weekAgo.setDate(now.getDate() - 6);
     weekAgo.setHours(0, 0, 0, 0);
 
-    const totalScans = qrLocations.reduce((sum, location) => sum + location.scans, 0);
-    const sortedByScans = [...qrLocations].sort((a, b) => b.scans - a.scans);
-    const sortedLow = [...qrLocations].sort((a, b) => a.scans - b.scans);
-    const scansToday = qrLocationVisits.filter((visit) => sameLocalDay(new Date(visit.timestamp), now)).length;
-    const scansThisWeek = qrLocationVisits.filter((visit) => new Date(visit.timestamp) >= weekAgo).length;
+    const totalScans = locationsWithStats.reduce((sum, location) => sum + location.displayScans, 0);
+    const sortedByScans = [...locationsWithStats].sort((a, b) => b.displayScans - a.displayScans);
+    const sortedLow = [...locationsWithStats].sort((a, b) => a.displayScans - b.displayScans);
+    const centralToday = locationsWithStats.reduce((sum, location) => sum + location.centralToday, 0);
+    const centralThisWeek = locationsWithStats.reduce((sum, location) => sum + location.centralThisWeek, 0);
+    const localToday = qrLocationVisits.filter((visit) => sameLocalDay(new Date(visit.timestamp), now)).length;
+    const localThisWeek = qrLocationVisits.filter((visit) => new Date(visit.timestamp) >= weekAgo).length;
 
     return {
-      totalCreated: qrLocations.length,
+      totalCreated: locationsWithStats.length,
       totalScans,
       mostScanned: sortedByScans[0],
       leastScanned: sortedLow[0],
-      scansToday,
-      scansThisWeek,
+      scansToday: Math.max(centralToday, localToday),
+      scansThisWeek: Math.max(centralThisWeek, localThisWeek),
       topAreas: sortedByScans.slice(0, 6),
     };
-  }, [qrLocations, qrLocationVisits]);
+  }, [locationsWithStats, qrLocationVisits]);
 
   function resetForm() {
     setForm(emptyForm);
@@ -208,6 +266,30 @@ export function QrLocationsAdminPage() {
         title="إدارة QR المناطق"
       />
 
+      <section
+        className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4 shadow-sm ${
+          centralStatus === 'error'
+            ? 'border-amber-200 bg-amber-50 text-amber-950'
+            : 'border-teal-100 bg-teal-50 text-teal-950'
+        }`}
+      >
+        <div>
+          <h2 className="text-base font-black">
+            {centralStatus === 'error' ? 'تعذر تحديث الإحصائيات المركزية' : 'الإحصائيات المركزية مفعلة'}
+          </h2>
+          <p className="mt-1 text-sm font-bold leading-6 opacity-80">
+            يتم عد مسحات الجوال في عداد مركزي لا يجمع رقم الجوال أو IMEI أو أي بيانات شخصية.
+          </p>
+        </div>
+        <Button
+          icon={<RefreshCw className={`size-4 ${centralStatus === 'loading' ? 'animate-spin' : ''}`} />}
+          onClick={() => setRefreshTick((value) => value + 1)}
+          variant="secondary"
+        >
+          تحديث الإحصائيات
+        </Button>
+      </section>
+
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <MetricCard
           helper="كل المناطق المحفوظة في النظام"
@@ -261,13 +343,13 @@ export function QrLocationsAdminPage() {
         <div className="mt-5 grid gap-3">
           {stats.topAreas.length ? (
             stats.topAreas.map((location) => {
-              const width = stats.totalScans ? Math.max(8, (location.scans / stats.totalScans) * 100) : 8;
+              const width = stats.totalScans ? Math.max(8, (location.displayScans / stats.totalScans) * 100) : 8;
 
               return (
                 <div key={location.id}>
                   <div className="mb-2 flex items-center justify-between gap-3 text-sm font-black">
                     <span className="text-slate-800">{location.name}</span>
-                    <span className="text-teal-700">{location.scans.toLocaleString('ar-SA')}</span>
+                    <span className="text-teal-700">{location.displayScans.toLocaleString('ar-SA')}</span>
                   </div>
                   <div className="h-3 overflow-hidden rounded-full bg-slate-100">
                     <span
@@ -369,7 +451,7 @@ export function QrLocationsAdminPage() {
               </tr>
             </thead>
             <tbody>
-              {qrLocations.map((location) => {
+              {locationsWithStats.map((location) => {
                 const qrLink = buildQrLocationUrl(location.slug);
 
                 return (
@@ -389,8 +471,8 @@ export function QrLocationsAdminPage() {
                         {qrLink}
                       </code>
                     </td>
-                    <td className="px-3 py-3 font-black text-teal-700">{location.scans.toLocaleString('ar-SA')}</td>
-                    <td className="px-3 py-3 text-slate-600">{formatDate(location.lastScanAt)}</td>
+                    <td className="px-3 py-3 font-black text-teal-700">{location.displayScans.toLocaleString('ar-SA')}</td>
+                    <td className="px-3 py-3 text-slate-600">{formatDate(location.displayLastScanAt)}</td>
                     <td className="px-3 py-3">
                       <StatusPill active={location.active} />
                     </td>

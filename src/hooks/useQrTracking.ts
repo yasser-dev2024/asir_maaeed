@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { syncQrScanToCentralCounter } from '../services/qrAnalyticsService';
 import { useAppStore } from '../store/appStore';
 
 export function useQrTracking() {
@@ -21,5 +22,7 @@ export function useQrTracking() {
     if (!locationResult.location) {
       recordQrScan(qr, route);
     }
+
+    void syncQrScanToCentralCounter(qr).catch(() => undefined);
   }, [location.pathname, location.search, recordQrLocationScan, recordQrScan]);
 }
