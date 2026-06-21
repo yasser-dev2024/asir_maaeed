@@ -175,6 +175,138 @@ function increaseMetric(metrics: AdminMetrics, key: keyof AdminMetrics, amount =
 }
 
 const QR_REPEAT_WINDOW_MS = 10 * 60 * 1000;
+const STORE_VERSION = 2;
+const SEEDED_METRICS_BASELINE: AdminMetrics = {
+  visitors: 18420,
+  qrScans: 6940,
+  journeys: 3275,
+  inquiries: 2188,
+};
+const SEEDED_EVENT_VISIT_BASELINES: Record<string, number> = {
+  'event-fog-walk': 1420,
+  'event-airport-booth': 2015,
+  'event-family-soudah': 1188,
+};
+const SEEDED_KEYWORD_USAGE_BASELINES: Record<string, number> = {
+  'health-center': 760,
+  'booth': 520,
+  'hydration': 430,
+  'emergency': 298,
+};
+const SEEDED_QR_VISIT_BASELINES: Record<string, number> = {
+  QR_AIRPORT: 2480,
+  QR_WALKWAY: 1775,
+  QR_EVENT: 1642,
+};
+const SEEDED_PASSPORT_POINTS = 80;
+const SEEDED_PASSPORT_SCANS = 3;
+const SEEDED_PASSPORT_ACHIEVEMENTS = new Set(['مسح QR من نقطة الوصول', 'زيارة ممشى صحي', 'قراءة بطاقة توعوية']);
+const SEEDED_PASSPORT_BADGES = new Set(['نشط اليوم', 'محافظ على الترطيب']);
+
+function subtractBaseline(value: number | undefined, baseline: number): number {
+  return Math.max(0, Number(value || 0) - baseline);
+}
+
+function qrStatsFromVisits(qrVisits: QrVisit[]) {
+  const stats = new Map<string, { visits: number; timestamp: string; route: string }>();
+
+  qrVisits.forEach((visit) => {
+    const current = stats.get(visit.qrSource);
+    if (!current || new Date(visit.timestamp).getTime() > new Date(current.timestamp).getTime()) {
+      stats.set(visit.qrSource, {
+        visits: (current?.visits ?? 0) + 1,
+        timestamp: visit.timestamp,
+        route: visit.route,
+      });
+      return;
+    }
+
+    stats.set(visit.qrSource, {
+      ...current,
+      visits: current.visits + 1,
+    });
+  });
+
+  return stats;
+}
+
+function cleanPersistedAnalytics(persistedState: Partial<AppState>): Partial<AppState> {
+  const qrVisits = Array.isArray(persistedState.qrVisits) ? persistedState.qrVisits : [];
+  const qrVisitStats = qrStatsFromVisits(qrVisits);
+  const persistedQrScans = Array.isArray(persistedState.qrScans) ? persistedState.qrScans : [];
+  const persistedQrBySource = new Map(persistedQrScans.map((scan) => [scan.source, scan]));
+  const knownQrScans = initialQrScans.map((scan) => {
+    const persisted = persistedQrBySource.get(scan.source);
+    const stats = qrVisitStats.get(scan.source);
+
+    return {
+      ...scan,
+      ...persisted,
+      visits: stats?.visits ?? 0,
+      scannedAt: stats?.timestamp ?? '',
+      lastRoute: stats?.route ?? '-',
+    };
+  });
+  const otherQrScans = persistedQrScans
+    .filter((scan) => !(scan.source in SEEDED_QR_VISIT_BASELINES))
+    .map((scan) => {
+      const stats = qrVisitStats.get(scan.source);
+
+      if (!stats) {
+        return scan;
+      }
+
+      return {
+        ...scan,
+        visits: stats.visits,
+        scannedAt: stats.timestamp,
+        lastRoute: stats.route,
+      };
+    });
+
+  const cleanedState: Partial<AppState> = {
+    ...persistedState,
+    qrScans: [...knownQrScans, ...otherQrScans],
+    qrVisits,
+  };
+
+  if (persistedState.metrics) {
+    cleanedState.metrics = {
+      visitors: subtractBaseline(persistedState.metrics.visitors, SEEDED_METRICS_BASELINE.visitors),
+      qrScans: Math.max(subtractBaseline(persistedState.metrics.qrScans, SEEDED_METRICS_BASELINE.qrScans), qrVisits.length),
+      journeys: subtractBaseline(persistedState.metrics.journeys, SEEDED_METRICS_BASELINE.journeys),
+      inquiries: subtractBaseline(persistedState.metrics.inquiries, SEEDED_METRICS_BASELINE.inquiries),
+    };
+  }
+
+  if (Array.isArray(persistedState.events)) {
+    cleanedState.events = persistedState.events.map((event) => ({
+      ...event,
+      visits: subtractBaseline(event.visits, SEEDED_EVENT_VISIT_BASELINES[event.id] ?? 0),
+    }));
+  }
+
+  if (Array.isArray(persistedState.keywordAnswers)) {
+    cleanedState.keywordAnswers = persistedState.keywordAnswers.map((answer) => ({
+      ...answer,
+      usage: subtractBaseline(answer.usage, SEEDED_KEYWORD_USAGE_BASELINES[answer.id] ?? 0),
+    }));
+  }
+
+  if (persistedState.passport) {
+    cleanedState.passport = {
+      ...persistedState.passport,
+      points: subtractBaseline(persistedState.passport.points, SEEDED_PASSPORT_POINTS),
+      scans: Math.max(subtractBaseline(persistedState.passport.scans, SEEDED_PASSPORT_SCANS), qrVisits.length),
+      achievements: persistedState.passport.achievements.filter(
+        (achievement) => !SEEDED_PASSPORT_ACHIEVEMENTS.has(achievement)
+      ),
+      badges: persistedState.passport.badges.filter((badge) => !SEEDED_PASSPORT_BADGES.has(badge)),
+    };
+  }
+
+  return cleanedState;
+}
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -480,6 +612,14 @@ export const useAppStore = create<AppState>()(
     {
       name: 'saif-seha-musaed-store',
       storage: createJSONStorage(() => window.localStorage),
+      version: STORE_VERSION,
+      migrate: (persistedState, version) => {
+        if (version >= STORE_VERSION || !persistedState || typeof persistedState !== 'object') {
+          return persistedState as AppState;
+        }
+
+        return cleanPersistedAnalytics(persistedState as Partial<AppState>) as AppState;
+      },
       partialize: (state) => ({
         metrics: state.metrics,
         events: state.events,

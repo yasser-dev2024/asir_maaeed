@@ -13,10 +13,10 @@ import type {
 } from '../types/domain';
 
 export const initialMetrics: AdminMetrics = {
-  visitors: 18420,
-  qrScans: 6940,
-  journeys: 3275,
-  inquiries: 2188,
+  visitors: 0,
+  qrScans: 0,
+  journeys: 0,
+  inquiries: 0,
 };
 
 export const initialEvents: HealthEvent[] = [
@@ -30,7 +30,7 @@ export const initialEvents: HealthEvent[] = [
     audience: 'العائلات ومحبو النشاط',
     category: 'نشاط بدني',
     mapUrl: 'https://maps.google.com/?q=Abha',
-    visits: 1420,
+    visits: 0,
     active: true,
     tone: 'green',
   },
@@ -44,7 +44,7 @@ export const initialEvents: HealthEvent[] = [
     audience: 'القادمون إلى عسير',
     category: 'توعية وفحص',
     mapUrl: 'https://maps.google.com/?q=Abha+Airport',
-    visits: 2015,
+    visits: 0,
     active: true,
     tone: 'blue',
   },
@@ -58,7 +58,7 @@ export const initialEvents: HealthEvent[] = [
     audience: 'الأطفال وكبار السن',
     category: 'عائلة',
     mapUrl: 'https://maps.google.com/?q=Al+Soudah',
-    visits: 1188,
+    visits: 0,
     active: true,
     tone: 'amber',
   },
@@ -166,7 +166,7 @@ export const initialKeywordAnswers: KeywordAnswer[] = [
     ctaLabel: 'اعرض المواقع القريبة',
     ctaUrl: '/nearby',
     active: true,
-    usage: 760,
+    usage: 0,
     updatedAt: '2026-06-20',
   },
   {
@@ -180,7 +180,7 @@ export const initialKeywordAnswers: KeywordAnswer[] = [
     ctaLabel: 'اذهب للفعاليات',
     ctaUrl: '/events',
     active: true,
-    usage: 520,
+    usage: 0,
     updatedAt: '2026-06-20',
   },
   {
@@ -194,7 +194,7 @@ export const initialKeywordAnswers: KeywordAnswer[] = [
     ctaLabel: 'حمّل دليل الترطيب',
     ctaUrl: '/downloads',
     active: true,
-    usage: 430,
+    usage: 0,
     updatedAt: '2026-06-20',
   },
   {
@@ -208,7 +208,7 @@ export const initialKeywordAnswers: KeywordAnswer[] = [
     ctaLabel: 'مواقع المساعدة القريبة',
     ctaUrl: '/nearby',
     active: true,
-    usage: 298,
+    usage: 0,
     updatedAt: '2026-06-20',
   },
 ];
@@ -274,36 +274,36 @@ export const passportLevels: PassportLevel[] = [
 ];
 
 export const initialPassport: PassportProfile = {
-  points: 80,
-  scans: 3,
-  achievements: ['مسح QR من نقطة الوصول', 'زيارة ممشى صحي', 'قراءة بطاقة توعوية'],
-  badges: ['نشط اليوم', 'محافظ على الترطيب'],
+  points: 0,
+  scans: 0,
+  achievements: [],
+  badges: [],
 };
 
 export const initialQrScans: QrScan[] = [
   {
     id: 'qr-airport',
     source: 'QR_AIRPORT',
-    scannedAt: '2026-06-20T09:20:00.000Z',
+    scannedAt: '',
     location: 'مطار أبها الدولي',
-    visits: 2480,
-    lastRoute: '/?qr=QR_AIRPORT',
+    visits: 0,
+    lastRoute: '-',
   },
   {
     id: 'qr-walkway',
     source: 'QR_WALKWAY',
-    scannedAt: '2026-06-20T10:10:00.000Z',
+    scannedAt: '',
     location: 'ممشى الضباب',
-    visits: 1775,
-    lastRoute: '/?qr=QR_WALKWAY',
+    visits: 0,
+    lastRoute: '-',
   },
   {
     id: 'qr-event',
     source: 'QR_EVENT',
-    scannedAt: '2026-06-20T12:05:00.000Z',
+    scannedAt: '',
     location: 'ركن الفعاليات',
-    visits: 1642,
-    lastRoute: '/?qr=QR_EVENT',
+    visits: 0,
+    lastRoute: '-',
   },
 ];
 

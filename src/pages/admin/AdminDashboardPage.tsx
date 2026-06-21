@@ -137,6 +137,19 @@ function AdminSection({ id, title, children }: { id: string; title: string; chil
   );
 }
 
+function formatScanDate(scannedAt: string, visits: number) {
+  if (!visits || !scannedAt) {
+    return '-';
+  }
+
+  const date = new Date(scannedAt);
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+
+  return date.toLocaleString('ar-SA');
+}
+
 export function AdminDashboardPage() {
   const metrics = useAppStore((state) => state.metrics);
   const events = useAppStore((state) => state.events);
@@ -461,8 +474,8 @@ export function AdminDashboardPage() {
                 <tr className="border-b border-slate-100" key={scan.id}>
                   <td className="px-3 py-3 font-bold text-slate-950">{scan.source}</td>
                   <td className="px-3 py-3 text-slate-600">{scan.location}</td>
-                  <td className="px-3 py-3 text-slate-600">{scan.lastRoute ?? '-'}</td>
-                  <td className="px-3 py-3 text-slate-600">{new Date(scan.scannedAt).toLocaleString('ar-SA')}</td>
+                  <td className="px-3 py-3 text-slate-600">{scan.visits ? scan.lastRoute : '-'}</td>
+                  <td className="px-3 py-3 text-slate-600">{formatScanDate(scan.scannedAt, scan.visits)}</td>
                   <td className="px-3 py-3 font-black text-teal-700">{scan.visits.toLocaleString('ar-SA')}</td>
                 </tr>
               ))}
