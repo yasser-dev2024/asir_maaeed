@@ -1,5 +1,7 @@
 import * as QRCode from 'qrcode';
 
+const QR_LINK_VERSION = '8';
+
 const knownLocationSlugs = new Map<string, string>([
   ['شارع الفن', 'art-street'],
   ['مطار أبها', 'abha-airport'],
@@ -105,6 +107,7 @@ export function buildQrLocationUrl(slug: string) {
   const baseUrl = getAppBaseUrl();
   const url = new URL(baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
   url.searchParams.set('qr', slug);
+  url.searchParams.set('v', QR_LINK_VERSION);
   return url.toString();
 }
 

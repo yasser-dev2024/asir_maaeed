@@ -19,7 +19,7 @@ import { Button } from '../../components/ui/Button';
 import { MetricCard } from '../../components/ui/MetricCard';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { StatusPill } from '../../components/ui/StatusPill';
-import { fetchQrCentralStats, type QrCentralStats } from '../../services/qrAnalyticsService';
+import { fetchQrCentralStats, syncQrScanToCentralCounter, type QrCentralStats } from '../../services/qrAnalyticsService';
 import { buildQrLocationUrl, generateQrPngDataUrl } from '../../services/qrLocationService';
 import { useAppStore } from '../../store/appStore';
 import type { QrLocation } from '../../types/domain';
@@ -112,6 +112,8 @@ export function QrLocationsAdminPage() {
   const [centralStats, setCentralStats] = useState<Record<string, QrCentralStats>>({});
   const [centralStatus, setCentralStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [refreshTick, setRefreshTick] = useState(0);
+  const [testingSlug, setTestingSlug] = useState('');
+  const [centralCheckedAt, setCentralCheckedAt] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -120,6 +122,7 @@ export function QrLocationsAdminPage() {
       if (!qrLocations.length) {
         setCentralStats({});
         setCentralStatus('ready');
+        setCentralCheckedAt(new Date().toLocaleTimeString('ar-SA'));
         return;
       }
 
@@ -133,6 +136,7 @@ export function QrLocationsAdminPage() {
         if (mounted) {
           setCentralStats(Object.fromEntries(entries));
           setCentralStatus('ready');
+          setCentralCheckedAt(new Date().toLocaleTimeString('ar-SA'));
         }
       } catch {
         if (mounted) {
@@ -258,6 +262,17 @@ export function QrLocationsAdminPage() {
     link.click();
   }
 
+  async function testQrCounter(slug: string) {
+    setTestingSlug(slug);
+
+    try {
+      await syncQrScanToCentralCounter(slug);
+      setRefreshTick((value) => value + 1);
+    } finally {
+      setTestingSlug('');
+    }
+  }
+
   return (
     <div className="grid gap-4">
       <PageHeader
@@ -280,6 +295,9 @@ export function QrLocationsAdminPage() {
           <p className="mt-1 text-sm font-bold leading-6 opacity-80">
             يتم عد مسحات الجوال في عداد مركزي لا يجمع رقم الجوال أو IMEI أو أي بيانات شخصية.
           </p>
+          {centralCheckedAt ? (
+            <p className="mt-1 text-xs font-black opacity-70">آخر تحديث: {centralCheckedAt}</p>
+          ) : null}
         </div>
         <Button
           icon={<RefreshCw className={`size-4 ${centralStatus === 'loading' ? 'animate-spin' : ''}`} />}
@@ -478,6 +496,14 @@ export function QrLocationsAdminPage() {
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex flex-wrap gap-2">
+                        <Button
+                          disabled={testingSlug === location.slug}
+                          icon={<RefreshCw className={`size-4 ${testingSlug === location.slug ? 'animate-spin' : ''}`} />}
+                          onClick={() => testQrCounter(location.slug)}
+                          variant="secondary"
+                        >
+                          {testingSlug === location.slug ? 'جاري الاختبار' : 'اختبار العد'}
+                        </Button>
                         <Button icon={<Download className="size-4" />} onClick={() => downloadQr(location)} variant="secondary">
                           تحميل للطباعة
                         </Button>
