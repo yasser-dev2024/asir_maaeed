@@ -1,4 +1,4 @@
-const CACHE_NAME = 'saif-seha-musaed-v7';
+const CACHE_NAME = 'saif-seha-musaed-v8';
 const BASE_URL = self.registration.scope;
 const CORE_ASSETS = [
   '',
