@@ -2,8 +2,6 @@ import { getOrCreateVisitorId } from '../utils/privacy';
 
 const COUNTER_API_BASE_URL = 'https://api.counterapi.dev/v1';
 const DEFAULT_COUNTER_NAMESPACE = 'asir-maaeed-qr-locations';
-const QR_REPEAT_WINDOW_MS = 10 * 60 * 1000;
-const SYNC_REPEAT_PREFIX = 'saif-seha-musaed-qr-sync';
 
 interface CounterApiResponse {
   count?: number;
@@ -71,10 +69,11 @@ function counterNames(slug: string) {
 
 async function fetchCounter(counterName: string, action?: 'up') {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 7000);
+  const timeout = window.setTimeout(() => controller.abort(), 12000);
 
   try {
     const response = await fetch(requestUrl(counterName, action), {
+      cache: 'no-store',
       method: 'GET',
       signal: controller.signal,
       headers: {
@@ -91,49 +90,43 @@ async function fetchCounter(counterName: string, action?: 'up') {
     }
 
     return (await response.json()) as CounterApiResponse;
+  } catch {
+    return null;
   } finally {
     window.clearTimeout(timeout);
   }
 }
 
-function getRepeatStorageKey(slug: string) {
-  return `${SYNC_REPEAT_PREFIX}:${getOrCreateVisitorId()}:${safeCounterName(slug)}`;
-}
-
-function shouldSkipRepeatedSync(slug: string) {
-  const key = getRepeatStorageKey(slug);
-  const previous = Number(window.localStorage.getItem(key) || 0);
-
-  return previous > 0 && Date.now() - previous < QR_REPEAT_WINDOW_MS;
-}
-
-function markSync(slug: string) {
-  window.localStorage.setItem(getRepeatStorageKey(slug), String(Date.now()));
-}
-
 export async function syncQrScanToCentralCounter(slug: string) {
-  if (!slug || shouldSkipRepeatedSync(slug)) {
+  if (!slug) {
     return;
   }
 
+  getOrCreateVisitorId();
   const names = counterNames(slug);
-  await Promise.all([fetchCounter(names.total, 'up'), fetchCounter(names.today, 'up'), fetchCounter(names.thisWeek, 'up')]);
-  markSync(slug);
+  await Promise.allSettled([
+    fetchCounter(names.total, 'up'),
+    fetchCounter(names.today, 'up'),
+    fetchCounter(names.thisWeek, 'up'),
+  ]);
 }
 
 export async function fetchQrCentralStats(slug: string): Promise<QrCentralStats> {
   const names = counterNames(slug);
-  const [total, today, thisWeek] = await Promise.all([
+  const [total, today, thisWeek] = await Promise.allSettled([
     fetchCounter(names.total),
     fetchCounter(names.today),
     fetchCounter(names.thisWeek),
   ]);
+  const totalValue = total.status === 'fulfilled' ? total.value : null;
+  const todayValue = today.status === 'fulfilled' ? today.value : null;
+  const thisWeekValue = thisWeek.status === 'fulfilled' ? thisWeek.value : null;
 
   return {
-    total: Number(total?.count || 0),
-    today: Number(today?.count || 0),
-    thisWeek: Number(thisWeek?.count || 0),
-    updatedAt: total?.updated_at || '',
-    available: true,
+    total: Number(totalValue?.count || 0),
+    today: Number(todayValue?.count || 0),
+    thisWeek: Number(thisWeekValue?.count || 0),
+    updatedAt: totalValue?.updated_at || '',
+    available: Boolean(totalValue || todayValue || thisWeekValue),
   };
 }
