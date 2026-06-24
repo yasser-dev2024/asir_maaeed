@@ -17,7 +17,6 @@ import {
   Trash2,
   Users,
   Wifi,
-  WifiOff,
   X,
 } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -26,7 +25,6 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { DoctorAssistantAdminSection } from '../../components/admin/DoctorAssistantAdminSection';
 import { SmartEntryAdminSection } from '../../components/admin/SmartEntryAdminSection';
 import { useAppStore, type ContentPayload, type EventPayload, type KeywordPayload } from '../../store/appStore';
-import { isSupabaseConfigured } from '../../lib/supabase';
 import type { ContentType, KeywordAnswer } from '../../types/domain';
 import { contentSchema, eventSchema, keywordSchema, validationMessage } from '../../utils/validation';
 
@@ -380,20 +378,10 @@ export function AdminDashboardPage() {
     <div className="grid gap-6 pb-10">
 
       {/* ── Sync status banner ────────────────────────────── */}
-      {isSupabaseConfigured ? (
-        <div className="flex items-center gap-3 rounded-2xl bg-teal-50 border border-teal-200 px-5 py-3.5">
-          <Wifi className="size-5 text-teal-600 shrink-0" />
-          <p className="text-sm font-bold text-teal-800">المزامنة عبر الأجهزة مفعّلة — التعديلات تظهر على جميع الأجهزة</p>
-        </div>
-      ) : (
-        <div className="flex items-start gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-5 py-4">
-          <WifiOff className="mt-0.5 size-5 text-amber-600 shrink-0" />
-          <div>
-            <p className="text-sm font-black text-amber-800">التعديلات محلية فقط — لا تظهر على الجوال</p>
-            <p className="mt-1 text-xs text-amber-700">لتفعيل المزامنة: أضف <code className="rounded bg-amber-100 px-1">VITE_SUPABASE_URL</code> و <code className="rounded bg-amber-100 px-1">VITE_SUPABASE_ANON_KEY</code> في إعدادات البيئة</p>
-          </div>
-        </div>
-      )}
+      <div className="flex items-center gap-3 rounded-2xl bg-teal-50 border border-teal-200 px-5 py-3.5">
+        <Wifi className="size-5 text-teal-600 shrink-0" />
+        <p className="text-sm font-bold text-teal-800">المزامنة عبر الأجهزة مفعّلة — التعديلات تظهر على جميع الأجهزة فوراً</p>
+      </div>
 
       {/* ── Dashboard ── */}
       <section className="scroll-mt-6" id="dashboard">

@@ -102,7 +102,7 @@ interface AppState {
   resetSmartEntry: () => void;
   setSmartEntryCompleted: () => void;
   updateSmartEntryConfig: (config: SmartEntryConfigPayload) => void;
-  login: (email: string, password: string) => boolean;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   refreshAdminSession: () => boolean;
 }
@@ -214,15 +214,10 @@ function increaseMetric(metrics: AdminMetrics, key: keyof AdminMetrics, amount =
 const QR_REPEAT_WINDOW_MS = 0;
 const STORE_VERSION = 3;
 const ADMIN_SESSION_KEY = 'saif-seha-admin-session';
+const ADMIN_JWT_KEY = 'admin-jwt-token';
 const ADMIN_LOGIN_ATTEMPTS_KEY = 'saif-seha-admin-login-attempts';
-const ADMIN_SESSION_TTL_MS = 30 * 60 * 1000;
 const ADMIN_MAX_FAILED_ATTEMPTS = 5;
 const ADMIN_LOCKOUT_MS = 5 * 60 * 1000;
-const ADMIN_EMAIL =
-  ((import.meta.env.APP_ADMIN_EMAIL || import.meta.env.VITE_ADMIN_EMAIL || 'admin@aseer.health.sa') as string)
-    .trim()
-    .toLowerCase();
-const ADMIN_PASSWORD = (import.meta.env.APP_ADMIN_PASSWORD || import.meta.env.VITE_ADMIN_PASSWORD || 'Aseer@2026') as string;
 const SEEDED_METRICS_BASELINE: AdminMetrics = {
   visitors: 18420,
   qrScans: 6940,
@@ -276,15 +271,10 @@ function hasValidAdminSession(): boolean {
   return readAdminSessionExpiresAt() > Date.now();
 }
 
-function writeAdminSession(): void {
-  window.sessionStorage.setItem(
-    ADMIN_SESSION_KEY,
-    JSON.stringify({ expiresAt: Date.now() + ADMIN_SESSION_TTL_MS })
-  );
-}
 
 function clearAdminSession(): void {
   window.sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  window.sessionStorage.removeItem(ADMIN_JWT_KEY);
 }
 
 function readAdminLoginAttempts(): AdminLoginAttempts {
@@ -1008,27 +998,40 @@ export const useAppStore = create<AppState>()(
         set({ smartEntryConfig: cleaned });
         void upsertRemoteSmartEntryConfig(cleaned);
       },
-      login: (email, password) => {
+      login: async (email, password) => {
         if (getAdminLoginLockRemainingSeconds() > 0) {
           set({ adminAuthenticated: false });
           logEvent('warn', 'admin_login_locked');
           return false;
         }
 
-        const valid = sanitizeText(email, 120).toLowerCase() === ADMIN_EMAIL && password === ADMIN_PASSWORD;
-        if (valid) {
-          writeAdminSession();
+        try {
+          const res = await fetch('/api/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: sanitizeText(email, 120), password }),
+          });
+
+          if (!res.ok) {
+            clearAdminSession();
+            recordFailedAdminLogin();
+            set({ adminAuthenticated: false });
+            logEvent('warn', 'admin_login_failed');
+            return false;
+          }
+
+          const { token, expiresAt } = await res.json() as { token: string; expiresAt: number };
+          window.sessionStorage.setItem(ADMIN_JWT_KEY, token);
+          window.sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ expiresAt }));
           clearFailedAdminLogins();
           set({ adminAuthenticated: true });
           logEvent('info', 'admin_login_success');
-        } else {
+          return true;
+        } catch {
           clearAdminSession();
-          recordFailedAdminLogin();
           set({ adminAuthenticated: false });
-          logEvent('warn', 'admin_login_failed');
+          return false;
         }
-
-        return valid;
       },
       logout: () => {
         clearAdminSession();

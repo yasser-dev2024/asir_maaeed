@@ -17,7 +17,9 @@ export function AdminLoginPage() {
     return <Navigate replace to="/admin" />;
   }
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  const [loading, setLoading] = useState(false);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const lockRemainingSeconds = getAdminLoginLockRemainingSeconds();
     if (lockRemainingSeconds > 0) {
@@ -25,7 +27,11 @@ export function AdminLoginPage() {
       return;
     }
 
-    const valid = login(email, password);
+    setLoading(true);
+    setError('');
+    const valid = await login(email, password);
+    setLoading(false);
+
     if (valid) {
       navigate('/admin');
       return;
@@ -76,8 +82,8 @@ export function AdminLoginPage() {
             />
           </label>
           {error ? <p className="rounded-lg bg-rose-50 p-3 text-sm font-bold text-rose-700">{error}</p> : null}
-          <Button className="w-full" icon={<LockKeyhole className="size-4" />} type="submit">
-            دخول لوحة التحكم
+          <Button className="w-full" icon={<LockKeyhole className="size-4" />} type="submit" disabled={loading}>
+            {loading ? 'جاري التحقق...' : 'دخول لوحة التحكم'}
           </Button>
         </form>
       </section>

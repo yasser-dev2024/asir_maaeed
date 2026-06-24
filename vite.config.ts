@@ -3,9 +3,19 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(({ command }) => ({
-  base: command === 'build' ? '/asir_maaeed/' : '/',
+  base: command === 'build'
+    ? (process.env.VITE_BASE_PATH ?? '/')
+    : '/',
   envPrefix: ['VITE_', 'APP_'],
   plugins: [react(), tailwindcss()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     rollupOptions: {
       output: {
@@ -21,9 +31,6 @@ export default defineConfig(({ command }) => ({
           }
           if (id.includes('node_modules/qrcode')) {
             return 'vendor-qr';
-          }
-          if (id.includes('node_modules/@supabase') || id.includes('node_modules/ws') || id.includes('node_modules/isows')) {
-            return 'vendor-supabase';
           }
         },
       },

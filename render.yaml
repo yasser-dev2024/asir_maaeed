@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: aser-health
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: node server/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aser-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: admin@aseer.health.sa
+      - key: ADMIN_PASSWORD
+        sync: false
+
+databases:
+  - name: aser-db
+    databaseName: aser_health
+    user: aser_admin
+    plan: free

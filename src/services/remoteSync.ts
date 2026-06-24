@@ -1,4 +1,3 @@
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import type {
   AwarenessContent,
   DoctorAssistantQuestion,
@@ -8,26 +7,149 @@ import type {
   SmartEntryConfig,
 } from '../types/domain';
 
-// ── Row mappers ────────────────────────────────────────────────────────────
+// ── API helpers ───────────────────────────────────────────────────────────────
+
+const API = '/api';
+const ADMIN_JWT_KEY = 'admin-jwt-token';
+
+function getAdminToken(): string {
+  try { return sessionStorage.getItem(ADMIN_JWT_KEY) ?? ''; }
+  catch { return ''; }
+}
+
+function adminHeaders(): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${getAdminToken()}`,
+  };
+}
+
+async function safePut(path: string, body: unknown): Promise<void> {
+  if (!getAdminToken()) return;
+  try {
+    await fetch(`${API}${path}`, {
+      method: 'PUT',
+      headers: adminHeaders(),
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // best-effort — never break local flow
+  }
+}
+
+async function safeDel(path: string): Promise<void> {
+  if (!getAdminToken()) return;
+  try {
+    await fetch(`${API}${path}`, {
+      method: 'DELETE',
+      headers: adminHeaders(),
+    });
+  } catch {
+    // best-effort
+  }
+}
+
+// ── Per-entity upsert / delete ─────────────────────────────────────────────
+
+export function upsertRemoteEvent(event: HealthEvent): Promise<void> {
+  return safePut(`/events/${event.id}`, {
+    title: event.title,
+    description: event.description,
+    location: event.location,
+    date: event.date,
+    time: event.time,
+    audience: event.audience,
+    category: event.category,
+    map_url: event.mapUrl,
+    active: event.active,
+    tone: event.tone,
+  });
+}
+
+export function deleteRemoteEvent(id: string): Promise<void> {
+  return safeDel(`/events/${id}`);
+}
+
+export function upsertRemoteContent(content: AwarenessContent): Promise<void> {
+  return safePut(`/contents/${content.id}`, {
+    title: content.title,
+    type: content.type,
+    summary: content.summary,
+    category: content.category,
+    action_label: content.actionLabel,
+    file_url: content.fileUrl,
+    active: content.active,
+    updated_at: content.updatedAt,
+  });
+}
+
+export function deleteRemoteContent(id: string): Promise<void> {
+  return safeDel(`/contents/${id}`);
+}
+
+export function upsertRemoteKeyword(keyword: KeywordAnswer): Promise<void> {
+  return safePut(`/keywords/${keyword.id}`, {
+    question: keyword.question,
+    keywords: keyword.keywords,
+    answer: keyword.answer,
+    link_label: keyword.linkLabel,
+    link_url: keyword.linkUrl,
+    image_url: keyword.imageUrl,
+    cta_label: keyword.ctaLabel,
+    cta_url: keyword.ctaUrl,
+    active: keyword.active,
+    updated_at: keyword.updatedAt,
+  });
+}
+
+export function deleteRemoteKeyword(id: string): Promise<void> {
+  return safeDel(`/keywords/${id}`);
+}
+
+export function upsertRemoteDoctorQuestion(question: DoctorAssistantQuestion): Promise<void> {
+  return safePut(`/doctor-questions/${question.id}`, {
+    question: question.question,
+    answer: question.answer,
+    keywords: question.keywords,
+    active: question.active,
+    order: question.order,
+    updated_at: question.updatedAt,
+  });
+}
+
+export function deleteRemoteDoctorQuestion(id: string): Promise<void> {
+  return safeDel(`/doctor-questions/${id}`);
+}
+
+export function upsertRemoteQrLocation(location: QrLocation): Promise<void> {
+  return safePut(`/qr-locations/${location.id}`, {
+    name: location.name,
+    description: location.description,
+    slug: location.slug,
+    active: location.active,
+    scans: location.scans,
+    last_scan_at: location.lastScanAt || null,
+    created_at: location.createdAt,
+  });
+}
+
+export function deleteRemoteQrLocation(id: string): Promise<void> {
+  return safeDel(`/qr-locations/${id}`);
+}
+
+export function upsertRemoteSmartEntryConfig(config: SmartEntryConfig): Promise<void> {
+  if (!getAdminToken()) return Promise.resolve();
+  return fetch(`${API}/smart-entry-config`, {
+    method: 'PUT',
+    headers: adminHeaders(),
+    body: JSON.stringify(config),
+  }).then(() => undefined).catch(() => undefined);
+}
+
+// ── Row → domain mappers ───────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
-
-function eventToRow(e: HealthEvent): Row {
-  return {
-    id: e.id,
-    title: e.title,
-    description: e.description,
-    location: e.location,
-    date: e.date,
-    time: e.time,
-    audience: e.audience,
-    category: e.category,
-    map_url: e.mapUrl,
-    active: e.active,
-    tone: e.tone,
-  };
-}
 
 function rowToEvent(r: Row): HealthEvent {
   return {
@@ -46,20 +168,6 @@ function rowToEvent(r: Row): HealthEvent {
   };
 }
 
-function contentToRow(c: AwarenessContent): Row {
-  return {
-    id: c.id,
-    title: c.title,
-    type: c.type,
-    summary: c.summary,
-    category: c.category,
-    action_label: c.actionLabel,
-    file_url: c.fileUrl,
-    active: c.active,
-    updated_at: c.updatedAt,
-  };
-}
-
 function rowToContent(r: Row): AwarenessContent {
   return {
     id: String(r.id ?? ''),
@@ -71,22 +179,6 @@ function rowToContent(r: Row): AwarenessContent {
     fileUrl: String(r.file_url ?? ''),
     active: Boolean(r.active ?? true),
     updatedAt: String(r.updated_at ?? ''),
-  };
-}
-
-function keywordToRow(k: KeywordAnswer): Row {
-  return {
-    id: k.id,
-    question: k.question,
-    keywords: k.keywords,
-    answer: k.answer,
-    link_label: k.linkLabel,
-    link_url: k.linkUrl,
-    image_url: k.imageUrl,
-    cta_label: k.ctaLabel,
-    cta_url: k.ctaUrl,
-    active: k.active,
-    updated_at: k.updatedAt,
   };
 }
 
@@ -107,18 +199,6 @@ function rowToKeyword(r: Row): KeywordAnswer {
   };
 }
 
-function doctorToRow(q: DoctorAssistantQuestion): Row {
-  return {
-    id: q.id,
-    question: q.question,
-    answer: q.answer,
-    keywords: q.keywords,
-    active: q.active,
-    order: q.order,
-    updated_at: q.updatedAt,
-  };
-}
-
 function rowToDoctor(r: Row): DoctorAssistantQuestion {
   return {
     id: String(r.id ?? ''),
@@ -126,19 +206,8 @@ function rowToDoctor(r: Row): DoctorAssistantQuestion {
     answer: String(r.answer ?? ''),
     keywords: Array.isArray(r.keywords) ? (r.keywords as string[]).map(String) : [],
     active: Boolean(r.active ?? true),
-    order: Number(r.order ?? 999),
+    order: Number(r.sort_order ?? r.order ?? 999),
     updatedAt: String(r.updated_at ?? ''),
-  };
-}
-
-function qrLocationToRow(l: QrLocation): Row {
-  return {
-    id: l.id,
-    name: l.name,
-    description: l.description,
-    slug: l.slug,
-    active: l.active,
-    created_at: l.createdAt,
   };
 }
 
@@ -150,72 +219,10 @@ function rowToQrLocation(r: Row, existingLocations: QrLocation[] = []): QrLocati
     description: String(r.description ?? ''),
     slug: String(r.slug ?? ''),
     active: Boolean(r.active ?? true),
-    scans: existing?.scans ?? 0,
-    lastScanAt: existing?.lastScanAt ?? '',
+    scans: Number(r.scans ?? existing?.scans ?? 0),
+    lastScanAt: r.last_scan_at ? String(r.last_scan_at) : (existing?.lastScanAt ?? ''),
     createdAt: String(r.created_at ?? ''),
   };
-}
-
-// ── Safe async wrapper ─────────────────────────────────────────────────────
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function safe(fn: () => PromiseLike<any>): Promise<void> {
-  if (!isSupabaseConfigured || !supabase) return;
-  try {
-    await fn();
-  } catch {
-    // Remote sync is best-effort; never break the local flow
-  }
-}
-
-// ── Per-entity upsert / delete ─────────────────────────────────────────────
-
-export function upsertRemoteEvent(event: HealthEvent): Promise<void> {
-  return safe(() => supabase!.from('aser_events').upsert(eventToRow(event)));
-}
-
-export function deleteRemoteEvent(id: string): Promise<void> {
-  return safe(() => supabase!.from('aser_events').delete().eq('id', id));
-}
-
-export function upsertRemoteContent(content: AwarenessContent): Promise<void> {
-  return safe(() => supabase!.from('aser_contents').upsert(contentToRow(content)));
-}
-
-export function deleteRemoteContent(id: string): Promise<void> {
-  return safe(() => supabase!.from('aser_contents').delete().eq('id', id));
-}
-
-export function upsertRemoteKeyword(keyword: KeywordAnswer): Promise<void> {
-  return safe(() => supabase!.from('aser_keywords').upsert(keywordToRow(keyword)));
-}
-
-export function deleteRemoteKeyword(id: string): Promise<void> {
-  return safe(() => supabase!.from('aser_keywords').delete().eq('id', id));
-}
-
-export function upsertRemoteDoctorQuestion(question: DoctorAssistantQuestion): Promise<void> {
-  return safe(() => supabase!.from('aser_doctor_questions').upsert(doctorToRow(question)));
-}
-
-export function deleteRemoteDoctorQuestion(id: string): Promise<void> {
-  return safe(() => supabase!.from('aser_doctor_questions').delete().eq('id', id));
-}
-
-export function upsertRemoteQrLocation(location: QrLocation): Promise<void> {
-  return safe(() => supabase!.from('aser_qr_locations').upsert(qrLocationToRow(location)));
-}
-
-export function deleteRemoteQrLocation(id: string): Promise<void> {
-  return safe(() => supabase!.from('aser_qr_locations').delete().eq('id', id));
-}
-
-export function upsertRemoteSmartEntryConfig(config: SmartEntryConfig): Promise<void> {
-  return safe(() =>
-    supabase!
-      .from('aser_smart_entry_config')
-      .upsert({ id: 1, config, updated_at: new Date().toISOString() })
-  );
 }
 
 // ── Snapshot types ─────────────────────────────────────────────────────────
@@ -241,66 +248,42 @@ export interface LocalSeedData {
 // ── Fetch all remote data ──────────────────────────────────────────────────
 
 export async function fetchRemoteSnapshot(existingLocations: QrLocation[] = []): Promise<RemoteSnapshot | null> {
-  if (!isSupabaseConfigured || !supabase) return null;
-
   try {
-    const [eventsRes, contentsRes, keywordsRes, doctorRes, qrRes, configRes] = await Promise.allSettled([
-      supabase.from('aser_events').select('*').order('created_at', { ascending: false }),
-      supabase.from('aser_contents').select('*').order('created_at', { ascending: false }),
-      supabase.from('aser_keywords').select('*').order('created_at', { ascending: false }),
-      supabase.from('aser_doctor_questions').select('*').order('order', { ascending: true }),
-      supabase.from('aser_qr_locations').select('*').order('created_at', { ascending: false }),
-      supabase.from('aser_smart_entry_config').select('config').eq('id', 1).maybeSingle(),
-    ]);
+    const res = await fetch(`${API}/data`, { cache: 'no-store' });
+    if (!res.ok) return null;
+
+    const data = await res.json() as {
+      events: Row[];
+      contents: Row[];
+      keywords: Row[];
+      doctorQuestions: Row[];
+      qrLocations: Row[];
+      smartEntryConfig: SmartEntryConfig | null;
+    };
 
     return {
-      events:
-        eventsRes.status === 'fulfilled' && Array.isArray(eventsRes.value.data)
-          ? eventsRes.value.data.map(rowToEvent)
-          : [],
-      contents:
-        contentsRes.status === 'fulfilled' && Array.isArray(contentsRes.value.data)
-          ? contentsRes.value.data.map(rowToContent)
-          : [],
-      keywordAnswers:
-        keywordsRes.status === 'fulfilled' && Array.isArray(keywordsRes.value.data)
-          ? keywordsRes.value.data.map(rowToKeyword)
-          : [],
-      doctorAssistantQuestions:
-        doctorRes.status === 'fulfilled' && Array.isArray(doctorRes.value.data)
-          ? doctorRes.value.data.map(rowToDoctor)
-          : [],
-      qrLocations:
-        qrRes.status === 'fulfilled' && Array.isArray(qrRes.value.data)
-          ? qrRes.value.data.map((r) => rowToQrLocation(r, existingLocations))
-          : [],
-      smartEntryConfig:
-        configRes.status === 'fulfilled' && configRes.value.data
-          ? (configRes.value.data.config as SmartEntryConfig)
-          : null,
+      events: (data.events ?? []).map(rowToEvent),
+      contents: (data.contents ?? []).map(rowToContent),
+      keywordAnswers: (data.keywords ?? []).map(rowToKeyword),
+      doctorAssistantQuestions: (data.doctorQuestions ?? []).map(rowToDoctor),
+      qrLocations: (data.qrLocations ?? []).map((row) => rowToQrLocation(row, existingLocations)),
+      smartEntryConfig: data.smartEntryConfig ?? null,
     };
   } catch {
     return null;
   }
 }
 
-// ── Seed remote from local (first-time Supabase setup) ────────────────────
+// ── Seed remote from local (first-time setup when DB is empty) ────────────
 
 export async function seedRemote(localData: LocalSeedData): Promise<void> {
-  if (!isSupabaseConfigured || !supabase) return;
-
-  try {
-    await Promise.allSettled([
-      supabase.from('aser_events').upsert(localData.events.map(eventToRow)),
-      supabase.from('aser_contents').upsert(localData.contents.map(contentToRow)),
-      supabase.from('aser_keywords').upsert(localData.keywordAnswers.map(keywordToRow)),
-      supabase.from('aser_doctor_questions').upsert(localData.doctorAssistantQuestions.map(doctorToRow)),
-      supabase.from('aser_qr_locations').upsert(localData.qrLocations.map(qrLocationToRow)),
-      supabase
-        .from('aser_smart_entry_config')
-        .upsert({ id: 1, config: localData.smartEntryConfig, updated_at: new Date().toISOString() }),
-    ]);
-  } catch {
-    // best-effort
-  }
+  if (!getAdminToken()) return;
+  await Promise.allSettled([
+    ...localData.events.map((e) => upsertRemoteEvent(e)),
+    ...localData.contents.map((c) => upsertRemoteContent(c)),
+    ...localData.keywordAnswers.map((k) => upsertRemoteKeyword(k)),
+    ...localData.doctorAssistantQuestions.map((q) => upsertRemoteDoctorQuestion(q)),
+    ...localData.qrLocations.map((l) => upsertRemoteQrLocation(l)),
+    upsertRemoteSmartEntryConfig(localData.smartEntryConfig),
+  ]);
 }

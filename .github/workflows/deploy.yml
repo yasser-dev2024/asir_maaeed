@@ -27,10 +27,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          APP_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          APP_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_BASE_PATH: /asir_maaeed/
 
       - name: Add .nojekyll
         run: touch dist/.nojekyll
