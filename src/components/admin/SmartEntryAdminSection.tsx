@@ -39,7 +39,7 @@ function emptyTripOption(index: number): SmartEntryTripOption {
   };
 }
 
-export function SmartEntryAdminSection() {
+export function SmartEntryAdminSection({ onSaved }: { onSaved?: (msg: string) => void }) {
   const config = useAppStore((state) => state.smartEntryConfig);
   const updateSmartEntryConfig = useAppStore((state) => state.updateSmartEntryConfig);
   const resetSmartEntry = useAppStore((state) => state.resetSmartEntry);
@@ -81,9 +81,28 @@ export function SmartEntryAdminSection() {
             تتحكم هذه الإعدادات في شاشة Smart Health Entry بعد السبلاش مباشرة.
           </p>
         </div>
-        <Button icon={<Save className="size-4" />} onClick={resetSmartEntry} variant="secondary">
-          إظهارها للمستخدم التالي
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            icon={<Save className="size-4" />}
+            onClick={() => {
+              updateSmartEntryConfig(config);
+              onSaved?.('تم حفظ إعدادات البداية الذكية ✓');
+            }}
+            variant="secondary"
+          >
+            حفظ الإعدادات
+          </Button>
+          <Button
+            icon={<Save className="size-4" />}
+            onClick={() => {
+              resetSmartEntry();
+              onSaved?.('ستظهر البداية الذكية للمستخدم التالي ✓');
+            }}
+            variant="secondary"
+          >
+            إظهارها للمستخدم التالي
+          </Button>
+        </div>
       </div>
 
       <div className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm font-bold leading-7 text-emerald-900">
@@ -134,6 +153,7 @@ export function SmartEntryAdminSection() {
               updateConfig(config, updateSmartEntryConfig, {
                 ageGroups: [...config.ageGroups, { id: newAgeId, label: newAgeLabel, message: newAgeMessage, active: true }],
               });
+              onSaved?.('تم إضافة الفئة العمرية ✓');
               setNewAgeId('');
               setNewAgeLabel('');
               setNewAgeMessage('');
@@ -148,7 +168,7 @@ export function SmartEntryAdminSection() {
             <h3 className="font-black text-slate-950">أسئلة نعم/لا</h3>
             <Button
               icon={<Plus className="size-4" />}
-              onClick={() =>
+              onClick={() => {
                 updateConfig(config, updateSmartEntryConfig, {
                   yesNoQuestions: [
                     ...config.yesNoQuestions,
@@ -160,8 +180,9 @@ export function SmartEntryAdminSection() {
                       active: true,
                     },
                   ],
-                })
-              }
+                });
+                onSaved?.('تم إضافة سؤال البداية الذكية ✓');
+              }}
               variant="secondary"
             >
               إضافة سؤال
@@ -189,7 +210,7 @@ export function SmartEntryAdminSection() {
             <h3 className="font-black text-slate-950">المرافق الصحية القريبة</h3>
             <Button
               icon={<Plus className="size-4" />}
-              onClick={() =>
+              onClick={() => {
                 updateConfig(config, updateSmartEntryConfig, {
                   facilityOptions: [
                     ...config.facilityOptions,
@@ -200,8 +221,9 @@ export function SmartEntryAdminSection() {
                       active: true,
                     },
                   ],
-                })
-              }
+                });
+                onSaved?.('تم إضافة المرفق ✓');
+              }}
               variant="secondary"
             >
               إضافة مرفق
@@ -226,11 +248,12 @@ export function SmartEntryAdminSection() {
             <h3 className="font-black text-slate-950">خيارات الرحلة والنصائح والروابط</h3>
             <Button
               icon={<Plus className="size-4" />}
-              onClick={() =>
+              onClick={() => {
                 updateConfig(config, updateSmartEntryConfig, {
                   tripOptions: [...config.tripOptions, emptyTripOption(config.tripOptions.length + 1)],
-                })
-              }
+                });
+                onSaved?.('تم إضافة خيار الرحلة ✓');
+              }}
               variant="secondary"
             >
               إضافة خيار

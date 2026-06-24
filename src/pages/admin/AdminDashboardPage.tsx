@@ -86,7 +86,7 @@ function fmtDate(iso: string, visits: number) {
 
 // ── Toast ────────────────────────────────────────────────────────────────────
 
-export function useSavedToast() {
+function useSavedToast() {
   const [msg, setMsg] = useState('');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const show = useCallback((text = 'تم الحفظ ✓') => {
@@ -592,7 +592,7 @@ export function AdminDashboardPage() {
 
       {/* ── Smart Entry ── */}
       <Section color="teal" desc="إعدادات شاشة الدخول الصحي الذكي" icon={AlertCircle} id="smart-entry" title="البداية الصحية الذكية">
-        <SmartEntryAdminSection />
+        <SmartEntryAdminSection onSaved={toast.show} />
       </Section>
 
       {/* ── QR ── */}
