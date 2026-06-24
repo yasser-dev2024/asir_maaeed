@@ -19,7 +19,7 @@ import {
   Wifi,
   X,
 } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { DoctorAssistantAdminSection } from '../../components/admin/DoctorAssistantAdminSection';
@@ -328,6 +328,28 @@ export function AdminDashboardPage() {
 
   const [pointsDelta, setPointsDelta] = useState('25');
 
+  // Sync status — checks if the backend API is actually reachable
+  const [syncStatus, setSyncStatus] = useState<'checking' | 'online' | 'local'>('checking');
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/health', { signal: controller.signal, cache: 'no-store' })
+      .then((r) => setSyncStatus(r.ok ? 'online' : 'local'))
+      .catch(() => setSyncStatus('local'));
+    return () => controller.abort();
+  }, []);
+
+  // Scroll to URL hash section on first mount (supports deep-linking)
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+    // Double rAF ensures the page has painted before scrolling
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        document.getElementById(hash)?.scrollIntoView({ block: 'start' });
+      })
+    );
+  }, []);
+
   // Charts
   const topEvents = useMemo(() => [...events].sort((a, b) => b.visits - a.visits).slice(0, 5), [events]);
   const topKw = useMemo(() => [...keywordAnswers].sort((a, b) => b.usage - a.usage).slice(0, 5), [keywordAnswers]);
@@ -378,10 +400,21 @@ export function AdminDashboardPage() {
     <div className="grid gap-6 pb-10">
 
       {/* ── Sync status banner ────────────────────────────── */}
-      <div className="flex items-center gap-3 rounded-2xl bg-teal-50 border border-teal-200 px-5 py-3.5">
-        <Wifi className="size-5 text-teal-600 shrink-0" />
-        <p className="text-sm font-bold text-teal-800">المزامنة عبر الأجهزة مفعّلة — التعديلات تظهر على جميع الأجهزة فوراً</p>
-      </div>
+      {syncStatus === 'online' && (
+        <div className="flex items-center gap-3 rounded-2xl border border-teal-200 bg-teal-50 px-5 py-3.5">
+          <Wifi className="size-5 shrink-0 text-teal-600" />
+          <p className="text-sm font-bold text-teal-800">المزامنة عبر الأجهزة مفعّلة — التعديلات تظهر على جميع الأجهزة فوراً</p>
+        </div>
+      )}
+      {syncStatus === 'local' && (
+        <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3.5">
+          <Wifi className="size-5 shrink-0 text-amber-500" />
+          <div>
+            <p className="text-sm font-bold text-amber-800">التعديلات محلية فقط — لا تظهر على أجهزة أخرى</p>
+            <p className="text-xs text-amber-600 mt-0.5">المزامنة تعمل فقط عند نشر الخادم على Render مع قاعدة بيانات</p>
+          </div>
+        </div>
+      )}
 
       {/* ── Dashboard ── */}
       <section className="scroll-mt-6" id="dashboard">
