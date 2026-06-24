@@ -352,6 +352,12 @@ export const initialSmartEntryConfig: SmartEntryConfig = {
       message: 'صحتك أولًا: قِس ضغطك عند الحاجة، انتبه للجهد الزائد، واختر نشاطًا يناسب حالتك الصحية.',
       active: true,
     },
+    {
+      id: 'elderly',
+      label: 'كبير سن',
+      message: 'راحتك أهم شيء: خذ الأمور ببطء، ابتعد عن التعب والحر، واستعن بمرافق أو أقرب مرفق صحي عند الحاجة.',
+      active: true,
+    },
   ],
   visitorTypes: [
     { id: 'visitor', label: 'زائر', active: true },
