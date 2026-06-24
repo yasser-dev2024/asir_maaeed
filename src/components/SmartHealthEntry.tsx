@@ -140,12 +140,12 @@ export function SmartHealthEntry({ visible, force = false, onDone }: SmartHealth
   }
 
   return (
-    <div className="fixed inset-0 z-40 grid h-dvh overflow-hidden bg-slate-950 text-white">
+    <div className="fixed inset-0 z-40 grid h-dvh overflow-y-auto bg-slate-950 text-white">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(251,191,36,0.22),transparent_24%),linear-gradient(180deg,#064e3b,#0f766e_44%,#020617)]" />
       <span className="home-asir-strip absolute inset-x-0 top-0 h-3" />
       <span className="home-gold-thread absolute top-[24%] left-[-20%] h-0.5 w-[92%] rotate-[-14deg]" />
 
-      <div className="smart-entry-card relative mx-auto flex h-dvh w-full max-w-md flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+1.35rem)] pt-[calc(env(safe-area-inset-top)+1.35rem)]">
+      <div className="smart-entry-card relative mx-auto flex min-h-full w-full max-w-md flex-col overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+1.35rem)] pt-[calc(env(safe-area-inset-top)+1.35rem)]">
         <header className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-black uppercase tracking-normal text-amber-100">Smart Health Entry</p>
